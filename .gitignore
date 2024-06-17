@@ -1,0 +1,6 @@
+venv/
+.idea/
+build/
+plots/
+cache/
+*.egg-info/
