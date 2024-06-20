@@ -84,7 +84,8 @@ def get_resources() -> dict:
 
     monthly_data = {}
     for r in resources:
-        year, month = os.path.splitext(r['path'].split('/')[-1])[0].split('-')[1:]
+        year, month = os.path.splitext(r['path'].split('/')[-1])[0].split('-')[1:3]
+        month = month.rstrip('_')
         monthly_data[(year, month)] = r['path']
 
     return monthly_data
