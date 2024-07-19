@@ -2,27 +2,45 @@
 This module provides functions for fetching and caching Electric Network Frequency (ENF) data from the National Grid
 ESO's system frequency data. It utilizes local caching to avoid redundant network requests.
 
-Dependencies:
-- os
-- requests
-- pandas
-- joblib
 """
 
 import os
+import logging
+from datetime import datetime, date
 
 import requests
 import pandas as pd
-from joblib import Memory
 
-memory = Memory('./cache/eso', verbose=0)
+logger = logging.getLogger(__name__)
 
 ESO_DATA_URL = 'https://data.nationalgrideso.com/system/system-frequency-data/datapackage.json'
 nominal_freq = 50
 
 
-@memory.cache
-def frequency_data(year: int, month: int) -> tuple:
+def query_dates(dates: list[date]) -> list[tuple[str, float]]:
+    """
+    Queries frequency data for a list of dates.
+
+    Parameters:
+    dates (list[date]): List of date objects to query data for.
+
+    Returns:
+    list[tuple[str, float]]: List of tuples containing the timestamp and frequency.
+    """
+    logger.info(f'Querying ESO data for {len(dates)} dates')
+
+    collected_data = []
+
+    unique_months = set((d.year, d.month) for d in dates)
+    for year, month in unique_months:
+        collected_data.extend(
+            query_month(year, month)
+        )
+
+    return [r for r in collected_data if datetime.fromisoformat(r[0]).date() in dates]
+
+
+def query_month(year: int, month: int) -> list[tuple[str, float]]:
     """
     Fetches reference ENF data from Great Britain for the given date and caches the response locally.
 
@@ -33,16 +51,15 @@ def frequency_data(year: int, month: int) -> tuple:
     Returns:
     tuple: A tuple containing numpy arrays of datetime objects and frequency values.
     """
+    logger.info(f'Querying ESO data for {year}-{month}')
+
     resource_path = get_resource(year, month)['path']
     df = pd.read_csv(resource_path)
 
     df['dtm'] = pd.to_datetime(df['dtm'])
     df['f'] = df['f'].astype(float)
 
-    eso_times = df['dtm'].to_numpy()
-    eso_enf = df['f'].to_numpy()
-
-    return eso_times, eso_enf
+    return [(dt.isoformat(), f) for dt, f in zip(df['dtm'], df['f'])]
 
 
 def get_resource(year: int, month: int) -> dict:
